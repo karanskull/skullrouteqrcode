@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useScratchCard } from '../hooks/useScratchCard';
 import { setupScratchCanvas } from '../utils/canvas';
 
@@ -8,6 +8,9 @@ interface ScratchAreaProps {
 
 export function ScratchArea({ onRevealed }: ScratchAreaProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  
   const { handleScratch, handleInteractionStart, handleInteractionEnd } = useScratchCard({
     canvasRef,
     onRevealed,
@@ -15,33 +18,46 @@ export function ScratchArea({ onRevealed }: ScratchAreaProps) {
   });
 
   useEffect(() => {
+    const updateDimensions = () => {
+      if (!containerRef.current) return;
+      const { width, height } = containerRef.current.getBoundingClientRect();
+      setDimensions({ width, height });
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || dimensions.width === 0 || dimensions.height === 0) return;
 
     // Set canvas size with better resolution
     const scale = window.devicePixelRatio || 1;
-    canvas.width = 400 * scale;
-    canvas.height = 200 * scale;
+    canvas.width = dimensions.width * scale;
+    canvas.height = dimensions.height * scale;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     // Scale all drawing operations
     ctx.scale(scale, scale);
-    setupScratchCanvas(ctx, 400, 200);
-  }, []);
+    setupScratchCanvas(ctx, dimensions.width, dimensions.height);
+  }, [dimensions]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ width: '400px', height: '200px' }}
-      className="absolute inset-0 w-full h-full cursor-pointer touch-none"
-      onMouseDown={handleInteractionStart}
-      onMouseUp={handleInteractionEnd}
-      onMouseMove={handleScratch}
-      onTouchStart={handleInteractionStart}
-      onTouchEnd={handleInteractionEnd}
-      onTouchMove={handleScratch}
-    />
+    <div ref={containerRef} className="absolute inset-0">
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full cursor-pointer touch-none"
+        onMouseDown={handleInteractionStart}
+        onMouseUp={handleInteractionEnd}
+        onMouseMove={handleScratch}
+        onTouchStart={handleInteractionStart}
+        onTouchEnd={handleInteractionEnd}
+        onTouchMove={handleScratch}
+      />
+    </div>
   );
 }
